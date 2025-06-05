@@ -1,0 +1,23 @@
+---
+- name: Create and configure a user
+  hosts: debian
+  gather_facts: yes
+  remote_user: root
+  vars:
+    users:
+      - name: user
+        password: "$6$T/PvZp5aGceENl7R$s6DPMawJR1KctXAES51dk3u.jEDmyz1wUk3qzJnpdb0DC0Ec.u2K3W68s9N3993DyXtAotxztJr1mIWbit/011"
+        groups: sudo
+        append: true
+        shell: /bin/bash
+        state: present
+        authorized_keys:
+          - user: user
+            key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFOzWUqkDXTtdFhZfeTebIqgBa8tkDVcijvegu8sBvVk me@virtual
+            manage_dir: true
+            exclusive: true
+            comment: ""
+            state: present
+
+  roles:
+    - { role: users, tags: users }

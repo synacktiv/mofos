@@ -1,0 +1,66 @@
+d-i base-installer/install-recommends boolean true
+d-i base-installer/kernel/headers boolean true
+d-i clock-setup/ntp boolean true
+{% if ntp is defined %}d-i clock-setup/ntp-server string {{ ntp }}{% endif %}
+d-i clock-setup/utc boolean true
+d-i debian-installer/locale string en_US
+d-i debian-installer/quiet boolean false
+d-i debian-installer/splash boolean false
+d-i finish-install/reboot_in_progress note 
+d-i grub-installer/bootdev string default
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean true
+d-i keyboard-configuration/toggle select No toggling
+d-i keyboard-configuration/xkb-keymap select us(latin9)
+d-i keymap select us(latin9)
+d-i localechooser/supported-locales multiselect en_US.UTF-8
+d-i mirror/country string manual
+d-i mirror/http/directory string /debian
+d-i mirror/http/hostname string ftp.fr.debian.org
+{% if proxy is defined %}d-i mirror/http/proxy string {{ proxy }}{% endif %}
+d-i mirror/suite string bookworm
+d-i mirror/udeb/suite string bookworm
+d-i netcfg/choose_interface select eth0
+d-i netcfg/dhcpv6_timeout string 1
+d-i netcfg/get_domain string localdomain
+d-i netcfg/wireless_wep string
+d-i partman-auto-crypto/erase_disks boolean false
+d-i partman-auto-lvm/guided_size string max
+d-i partman-auto/disk string /dev/vda
+d-i partman-auto/method string regular
+d-i partman-basicfilesystems/no_swap boolean false
+d-i partman-auto/expert_recipe string                         \
+      boot-root ::                                            \
+              400 500 500 ext3                                \
+                      $primary{ } $bootable{ }                \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext3 }    \
+                      mountpoint{ /boot }                     \
+              .                                               \
+              500 10000 1000000000 ext4                       \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      mountpoint{ / }                         \
+              .                                               \
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-md/confirm_nooverwrite boolean true
+d-i partman-md/device_remove_md boolean true
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+d-i passwd/make-user boolean false
+d-i passwd/root-password-crypted password {{ root_password }}
+d-i pkgsel/include string gnupg openssh-server initramfs-tools python3
+d-i pkgsel/install-language-support boolean true
+d-i pkgsel/upgrade select full-upgrade
+d-i preseed/early_command string sleep 5;hw-detect;sleep 8;hw-detect;
+d-i preseed/late_command string {{ late_command }}
+d-i time/zone string Europe/Paris
+d-i user-setup/allow-password-weak boolean true
+base-config apt-setup/contrib boolean true
+base-config apt-setup/non-free boolean true
+tasksel tasksel/first multiselect ssh-server
+popularity-contest popularity-contest/participate boolean false

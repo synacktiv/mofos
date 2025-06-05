@@ -1,0 +1,2 @@
+local_systemd_dir: "/usr/local/lib/systemd/system"
+user_systemd_dir: "/usr/local/lib/systemd/user"

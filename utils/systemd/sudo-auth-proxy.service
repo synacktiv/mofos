@@ -1,0 +1,9 @@
+[Unit]
+Description=SUDO auth proxy over vsock proxy
+
+[Service]
+ExecStart=/usr/share/mofos/utils/sudo-auth-proxy.py
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,9 @@
+<pool type="dir">
+  <name>mofos</name>
+  <uuid>0f2a59d7-6b51-43ad-b209-57d0a4373db5</uuid>
+  <source>
+  </source>
+  <target>
+    <path>/var/lib/libvirt/images/mofos</path>
+  </target>
+</pool>

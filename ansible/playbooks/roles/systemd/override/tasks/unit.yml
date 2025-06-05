@@ -1,0 +1,26 @@
+---
+- name: "Create directory"
+  file:
+    state: directory
+    path: "/etc/systemd/system/{{ unit.name }}.service.d"
+    owner: root
+    group: root
+    mode: "{{ dirmode }}"
+
+- name: "Create override file"
+  template:
+    src: "{{ unit.src }}"
+    dest: "/etc/systemd/system/{{ unit.name }}.service.d/override.conf"
+    owner: root
+    group: root
+    mode: "{{ mode }}"
+  register: hook_changed
+
+- name: "Reload corresponding unit"
+  when: hook_changed.changed
+  systemd:
+    name: "{{ unit.name }}"
+    state: reloaded
+
+
+

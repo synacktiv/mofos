@@ -1,0 +1,6 @@
+---
+- include_tasks: block.yml
+  loop: "{{ systemd.mountpoints }}"
+  loop_control:
+    loop_var: mnt
+

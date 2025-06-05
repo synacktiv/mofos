@@ -1,0 +1,46 @@
+[defaults.overlay]
+disk = "template-formatted-50-disk.qcow2"
+
+[defaults.template]
+name = "debian-template"
+
+
+[ssh]
+user = "user"
+# Relative to the user home directory
+key = "/.ssh/mofos_key" # CHANGEME
+
+[ssh.agent]
+# In case the SSH-AGENT socket path is static, its value can be directly
+# inserted in systemd units to avoid runing
+# `systemctl --user import-environment SSH_AUTH_SOCK`
+# Systemd unit syntax can be used: e.g. %t => /run/user/1000/
+path = "%t/openssh_agent"
+# If existing, name of the systemd unit handling the start of the ssh-agent
+# used to fix dependencies in unit templates
+#systemd_unit = ""
+
+[ssh.controlmaster]
+# Relative to the user home directory, if the directory does not exist, it will
+# be created
+path = "/.ssh/controlmasters"
+
+[install]
+preseed = "/usr/share/mofos/templates/debian/preseed.cfg.j2"
+
+[install.variables]
+ntp = "" # CHANGEME
+#dns = "" # CHANGEME, ca be omitted if a proxy is used
+proxy = "" # CHANGEME, should begin with http://
+# It is the hash of `root` 
+root_password = "$6$JRxTF5agJkD7U04U$ZA27w3KhchvlteAqFxcXIVZCRDUBd0ImWkn6zDvS7hq/dLDwsM31kc5jRQdO8RpulCUmYEHFnfU47Fo2DQbp/1" # CHANGEME
+
+[install.late_command]
+script = "/usr/share/mofos/templates/postinstall.sh.j2"
+
+[install.late_command.variables]
+root_ssh_pubkey = "" # CHANGME
+
+[hooks]
+# Hooks can take up to 5 arguments: tag, name, operating system, distribution, alias (randomized hostname)
+new = "/usr/share/mofos/hooks/new.sh"

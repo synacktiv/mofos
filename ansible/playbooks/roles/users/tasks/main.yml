@@ -1,0 +1,11 @@
+---
+- name: Configure Users
+  user: '{{ item | dict2items | rejectattr("key", "equalto", "authorized_keys") | list | items2dict }}'
+  with_items: '{{ users }}'
+
+- name: Configure authorized_keys
+  when: user.authorized_keys | default(false)
+  include_tasks: authorized_keys.yml
+  loop: '{{ users }}'
+  loop_control:
+    loop_var: user

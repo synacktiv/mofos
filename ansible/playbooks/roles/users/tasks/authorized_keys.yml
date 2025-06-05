@@ -1,0 +1,5 @@
+---
+- name: Configure authorized_keys
+  authorized_key: '{{ item }}'
+  with_items: '{{ user.authorized_keys }}'
+  ignore_errors: yes

@@ -1,0 +1,9 @@
+---
+- include_tasks: dnf.yml
+  when: ansible_os_family == "RedHat"
+
+- include_tasks: apt.yml
+  when: ansible_os_family == "Debian"
+
+- include_tasks: pacman.yml
+  when: ansible_os_family == "Archlinux"

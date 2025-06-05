@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Do not do anything in case of upgrade
+if [ "$1" = "upgrade" ]; then
+    exit 0
+fi
+
+. /usr/share/debconf/confmodule
+
+# Libvirt: preparing resources
+# ---------------------------
+
+db_get mofos/pool/default
+DEFAULT_POOL="$RET"
+
+db_get mofos/pool/install
+INSTALL_POOL="$RET"
+
+db_get mofos/net/name
+NET_NAME="$RET"
+
+db_get mofos/net/iface
+NET_IFACE="$RET"
+
+db_get mofos/net/address
+NET_ADDRESS="$RET"
+
+LIBVIRT_DEFAULT_URI="qemu:///system"
+
+
+virsh pool-list | grep -q "^ ${DEFAULT_POOL} "
+if [ $? -eq 0 ] ; then
+  virsh pool-destroy "${DEFAULT_POOL}"
+  virsh pool-undefine "${DEFAULT_POOL}"
+fi
+
+virsh pool-list | grep -q "^ ${INSTALL_POOL} "
+if [ $? -eq 0 ] ; then
+  virsh pool-destroy "${INSTALL_POOL}"
+  virsh pool-undefine "${INSTALL_POOL}"
+fi
+
+virsh net-list | grep -q "^ ${NET_NAME} "
+if [ $? -eq 0 ] ; then
+  virsh net-destroy "${NET_NAME}"
+  virsh net-undefine "${NET_NAME}"
+fi
+
+cp /usr/share/mofos/apparmor/usr.sbin.libvirtd.orig /etc/apparmor.d/usr.sbin.libvirtd
+apparmor_parser -r /etc/apparmor.d/usr.sbin.libvirtd

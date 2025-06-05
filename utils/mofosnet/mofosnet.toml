@@ -1,0 +1,17 @@
+[libvirt]
+iface = "mof0"
+dhcp_range = "192.168.90.128/25"
+
+[tunneling]
+tun_prefix = "sshvpn"
+routes = []
+run_file = "/run/mofosnet.json"
+
+[command]
+start = ""  # the peer remote address will be given as argv[1]
+stop = ""
+
+[firewall]
+# This setting isolates managed virtual machines from one another
+# it requires nftables and the kernel module br_netfilter
+enable = true

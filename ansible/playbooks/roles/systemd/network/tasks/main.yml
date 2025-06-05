@@ -1,0 +1,38 @@
+---
+- name: Configure systemd network
+  when: systemd.network | default(false)
+  block:
+
+    - name: Configure networkd.conf file
+      when: systemd.network.src | default(false)
+      template:
+        src: '{{ systemd.network.src }}'
+        dest: '{{ network_dir }}/networkd.conf'
+        owner: root
+        group: root
+        mode: "{{ mode }}"
+    
+    - name: Purge network directory
+      when: systemd.network.purge | default(false)
+      file:
+        path: '{{ network_interfaces_dir }}'
+        owner: root
+        group: root
+        mode: "{{ dirmode }}"
+        state: '{{ item }}'
+      with_items:
+        - absent
+        - directory
+
+    - name: Set interface configuration file
+      template:
+        src: "{{ net.src }}"
+        dest: "{{ network_interfaces_dir }}/{{ net.name }}.network"
+        mode: "{{ mode }}"
+        owner: root
+        group: root
+      loop: "{{ systemd.network.includes }}"
+      loop_control:
+        loop_var: net
+      ignore_errors: true
+   

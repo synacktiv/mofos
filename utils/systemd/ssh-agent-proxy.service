@@ -1,0 +1,12 @@
+[Unit]
+Description=SSH-agent vsock proxy
+Requires=ssh-agent.service
+After=ssh-agent.service
+
+[Service]
+Environment=SSH_AUTH_SOCK=%t/openssh_agent
+ExecStart=/usr/share/mofos/utils/ssh-agent-proxy.py
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

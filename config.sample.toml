@@ -1,0 +1,97 @@
+[defaults]
+ram = 8192
+cpus = 4
+tags = ["pentest"]
+#vsock = true
+#shmem = true
+
+[defaults.overlay]
+disk = "template-formatted-50-disk.qcow2"
+
+[defaults.template]
+name = "debian-template"
+
+[runtime.vsock]
+#ssh_port = 65022
+#ssh_agent_proxy_port = 65000
+#sudo_auth_port = 65002
+#socat_bin_path = "/usr/bin/socat"
+
+[ssh]
+#port = 22
+user = "user"
+# Relative to the user home directory
+key = "/.ssh/me-virtual"
+options = "-o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o CanonicalizeHostname=no"
+#known_hosts_file = "$HOME/.ssh/known_hosts"
+
+[ssh.agent]
+# In case the SSH-AGENT socket path is static, its value can be directly
+# inserted in systemd units to avoid runing
+# `systemctl --user import-environment SSH_AUTH_SOCK`
+# Systemd unit syntax can be used: e.g. %t => /run/user/1000/
+path = "%t/openssh_agent"
+# If existing, name of the systemd unit handling the start of the ssh-agent
+# used to fix dependencies in unit templates
+#systemd_unit = ""
+
+[ssh.controlmaster]
+# Relative to the user home directory, if the directory does not exist, it will
+# be created
+path = "/.ssh/controlmasters"
+
+[libvirt]
+#dnsmasq_home = "/var/lib/libvirt/dnsmasq"
+#qemu = "qemu:///system"
+#disks = "/var/lib/libvirt/images"
+pool = "mofos"
+network = "mofos"
+interface = "mof0"
+
+[install]
+preseed = "/usr/share/mofos/templates/debian/preseed.cfg.j2"
+pool = "mofos_install"
+size = 50
+
+[install.variables]
+ntp = "" # CHANGEME
+#dns = ""
+proxy = "" # should begin with http://
+# It is the hash of `root` 
+root_password = "$6$JRxTF5agJkD7U04U$ZA27w3KhchvlteAqFxcXIVZCRDUBd0ImWkn6zDvS7hq/dLDwsM31kc5jRQdO8RpulCUmYEHFnfU47Fo2DQbp/1" # CHANGEME
+
+[install.late_command]
+script = "/usr/share/mofos/templates/postinstall.sh.j2"
+
+[install.late_command.variables]
+root_ssh_pubkey = "" # CHANGME
+
+
+[tools]
+#dmenu = "/usr/bin/dmenu"
+
+[xpra]
+#display = ":10"
+#cmd = /usr/bin/xpra attach
+#options = "--dpi 96 --notification=off --tray=no --clipboard=no"
+
+# The pivot boxes are servers used for the tunnel commands, allowing to route
+# traffic from one virtual machine through them passing by the host.
+[pivot.box]
+# File is only used for autocompletion and is a JSON with a alias key that
+# contains the name of the box.
+file = ""
+# Suffix is also only used for autocompletion and is added to the alias if the
+# it is not sufficient to resolve the server
+suffix = ""
+
+[hooks]
+# Hooks can take up to 5 arguments: tag, name, operating system, distribution, alias (randomized hostname)
+new = "/usr/share/mofos/hooks/new.sh"
+
+[hooks.pentest]
+install = "/usr/share/mofos/hooks/install.sh"
+start = "/usr/share/mofos/hooks/poststart.sh"
+#new = 
+
+[hooks.windows]

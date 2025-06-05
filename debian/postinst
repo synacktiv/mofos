@@ -1,0 +1,124 @@
+#!/bin/bash
+
+# Libvirt: preparing resources
+# ---------------------------
+
+if [ "$1" = "make" ]; then
+  PREFIX="$2"
+  DEFAULT_POOL="$3"
+  INSTALL_POOL="$4"
+  NET_NAME="$5"
+  NET_IFACE="$6"
+  NET_ADDRESS="$7"
+
+elif [ "$1" = "configure" ] ; then
+
+  # Do not do anything in case of upgrade ($2 is the old version)
+  if [ ! -z "$2" ]; then
+      exit 0
+  fi
+
+  . /usr/share/debconf/confmodule
+
+  PREFIX="/usr"
+
+  db_get mofos/pool/default
+  DEFAULT_POOL="$RET"
+
+  db_get mofos/pool/install
+  INSTALL_POOL="$RET"
+
+  db_get mofos/net/name
+  NET_NAME="$RET"
+
+  db_get mofos/net/iface
+  NET_IFACE="$RET"
+
+  db_get mofos/net/address
+  NET_ADDRESS="$RET"
+else
+  exit 0
+fi
+
+
+LIBVIRT_DEFAULT_URI="qemu:///system"
+
+## Create mofos volume pool
+virsh pool-list | grep -q "^ ${DEFAULT_POOL} "
+if [ $? -ne 0 ] ; then
+  mkdir -p /var/lib/libvirt/images/$DEFAULT_POOL
+  sed -i "s/0f2a59d7-6b51-43ad-b209-57d0a4373db5/$(uuidgen)/" ${PREFIX}/share/mofos/pool/mofos.xml
+  sed -i "s|<name>mofos</name>|<name>${DEFAULT_POOL}</name>|" ${PREFIX}/share/mofos/pool/mofos.xml
+  virsh pool-define --file "${PREFIX}/share/mofos/pool/mofos.xml" 2>&1 >/dev/null
+fi
+virsh pool-start --pool "${DEFAULT_POOL}" 2>&1 >/dev/null || true
+virsh pool-autostart --pool "${DEFAULT_POOL}" 2>&1 >/dev/null || true
+
+## Create install volume pool
+virsh pool-list | grep -q "^ ${INSTALL_POOL} "
+if [ $? -ne 0 ] ; then
+  mkdir -p "/var/lib/libvirt/images/${INSTALL_POOL}"
+  sed -i "s/8c075189-391a-4ac4-a2e4-b07a58f059f9/$(uuidgen)/" ${PREFIX}/share/mofos/pool/install.xml
+  sed -i "s|<name>mofos_install</name>|<name>${INSTALL_POOL}</name>|" ${PREFIX}/share/mofos/pool/install.xml
+  virsh pool-define --file "${PREFIX}/share/mofos/pool/install.xml" 2>&1 >/dev/null
+fi
+virsh pool-start --pool "${INSTALL_POOL}" 2>&1 >/dev/null || true
+virsh pool-autostart --pool "${INSTALL_POOL}" 2>&1 >/dev/null || true
+
+## Create mofos network
+ 
+# Utils functions
+ip_to_int() {
+    local ip="$1"
+    local a b c d
+    IFS=. read -r a b c d <<< "$ip"
+    echo "$((a * 256 ** 3 + b * 256 ** 2 + c * 256 + d))"
+}
+
+int_to_ip() {
+    local int="$1"
+    echo "$((int >> 24 & 255)).$((int >> 16 & 255)).$((int >> 8 & 255)).$((int & 255))"
+}
+
+cidr_to_netmask() {
+    value=$(( 0xffffffff ^ ((1 << (32 - $1)) - 1) ))
+    echo "$(( (value >> 24) & 0xff )).$(( (value >> 16) & 0xff )).$(( (value >> 8) & 0xff )).$(( value & 0xff ))"
+}
+
+IFS=/ read -r subnet cidr <<< $NET_ADDRESS
+start="$(int_to_ip $(( $(ip_to_int $subnet) + 1)))"
+netmask="$(cidr_to_netmask $cidr)"
+new_cidr="$(( $cidr + 1 ))"
+new_netmask="$(cidr_to_netmask $new_cidr)"
+IFS=. read -r a b c d <<< $new_netmask
+last_digit=$d
+IFS=. read -r a b c d <<< $subnet
+total_ips=$(( 2 ** (32 - $new_cidr) ))
+last_octet=$(( ($total_ips - 1) + i4 + $last_digit - 2))
+dhcp_start="$a.$b.$c.$(( $last_digit + 1))"
+dhcp_end="$a.$b.$c.$last_octet"
+dhcp_range="$a.$b.$c.$(( $last_digit))/$new_cidr"
+
+virsh net-list | grep -q "^ ${NET_NAME} "
+if [ $? -ne 0 ] ; then
+  sed -i "s/64ae301c-39d2-42a4-a65f-61ea94f8fc29/$(uuidgen)/" ${PREFIX}/share/mofos/bridge/mof0.xml
+  sed -i "s|<name>mofos</name>|<name>${NET_NAME}</name>|" ${PREFIX}/share/mofos/bridge/mof0.xml
+  sed -i "s/mof0/${NET_IFACE}/g" ${PREFIX}/share/mofos/bridge/mof0.xml
+  sed -i "s|192.168.90.1|${start}|g" ${PREFIX}/share/mofos/bridge/mof0.xml
+  sed -i "s|255.255.255.0|${netmask}|g" ${PREFIX}/share/mofos/bridge/mof0.xml
+  sed -i "s|192.168.90.129|${dhcp_start}|g" ${PREFIX}/share/mofos/bridge/mof0.xml
+  sed -i "s|192.168.90.253|${dhcp_end}|g" ${PREFIX}/share/mofos/bridge/mof0.xml
+  sed -i "s|192.168.90.128/25|${dhcp_range}|g" /etc/mofos/mofosnet.toml
+  virsh net-define --file ${PREFIX}/share/mofos/bridge/mof0.xml 2>&1 >/dev/null
+fi
+virsh net-start --network "${NET_NAME}" 2>&1 >/dev/null || true
+virsh net-autostart --network "${NET_NAME}" 2>&1 >/dev/null || true
+
+# Apparmor: patching the libvirtd apparmor configuration
+# ------------------------------------------------------
+ 
+if [ -d "/etc/apparmor.d" ] ; then
+  cp /etc/apparmor.d/usr.sbin.libvirtd /usr/share/mofos/apparmor/usr.sbin.libvirtd.orig
+  cp /usr/share/mofos/apparmor/usr.sbin.libvirtd /etc/apparmor.d/usr.sbin.libvirtd
+  apparmor_parser -r /etc/apparmor.d/usr.sbin.libvirtd
+fi

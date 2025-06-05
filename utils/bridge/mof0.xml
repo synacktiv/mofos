@@ -1,0 +1,21 @@
+<network xmlns:dnsmasq='http://libvirt.org/schemas/network/dnsmasq/1.0'>
+  <name>mofos</name>
+  <uuid>64ae301c-39d2-42a4-a65f-61ea94f8fc29</uuid>
+  <forward mode='open'/>
+  <bridge name='mof0' stp='on' delay='0'/>
+  <mac address='52:54:00:8e:b0:1d'/>
+  <ip address='192.168.90.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.90.129' end='192.168.90.253'>
+        <lease expiry='168' unit='hours'/>
+      </range>
+    </dhcp>
+  </ip>
+  <dns enable="no"/>
+  <dnsmasq:options>
+    <!-- custom routes may be added here to be transmitted to dhcp clients -->
+    <!-- <dnsmasq:option value='dhcp-option=121,100.64.1.1/32,192.168.90.1'/> -->
+    <dnsmasq:option value='dhcp-option=6'/>
+    <dnsmasq:option value='dhcp-option=3'/>
+  </dnsmasq:options>
+</network>

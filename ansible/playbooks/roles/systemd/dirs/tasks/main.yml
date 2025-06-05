@@ -1,0 +1,8 @@
+---
+- name: Create the local system directory
+  file:
+    state: directory
+    dest: /usr/local/lib/systemd/system/
+    owner: root
+    group: root
+    mode: 0755

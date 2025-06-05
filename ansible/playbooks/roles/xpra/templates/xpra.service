@@ -1,0 +1,10 @@
+[Unit]
+Description=xpra display
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/xpra --dpi 96 --no-daemon start :{{ xpra.displayfd }}
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

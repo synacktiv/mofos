@@ -1,0 +1,4 @@
+/data/libvirt{,/**} r,
+/data/libvirt/iso{,/**} rw,
+/data/libvirt/machines/*/boot/* rwk,
+audit deny /data/libvirt/machines/*/boot/set_boot.sh wx,

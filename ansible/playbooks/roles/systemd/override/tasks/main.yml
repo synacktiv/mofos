@@ -1,0 +1,6 @@
+---
+- include_tasks: unit.yml
+  when: systemd.override.includes | default(false)
+  loop: "{{ systemd.override.includes }}"
+  loop_control:
+    loop_var: unit

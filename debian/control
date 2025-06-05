@@ -1,0 +1,14 @@
+Source: mofos
+Maintainer: devnull <dev@null.com>
+Section: admin
+Priority: optional
+Build-Depends: dh-python, debhelper (>= 9)
+Standards-Version: 3.9.5
+X-Python3-Version: >= 3.11
+XS-Python3-Version: >= 3.11
+
+Package: mofos
+Architecture: all
+Depends: ${python3:Depends}, libvirt-clients, libvirt-daemon, qemu-system-common, xpra,  virtinst,  virt-manager, python3-prettytable, python3-jinja2, python3-colorama, python3-pyroute2, python3-lxml, python3-tqdm, make, libnotify-bin, guestfs-tools, socat, python3-click, python3-click-completion, sudo
+Suggests: ansible
+Description: Mofos virtual machine management framework

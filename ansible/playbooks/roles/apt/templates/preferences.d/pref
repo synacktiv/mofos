@@ -1,0 +1,6 @@
+{% for entry in prefs.entries %}
+Package: {{ entry.packages }}
+Pin:{% if entry.version is defined %} version {{ entry.version }}{% endif %}{% if entry.origin is defined %} origin {{ entry.origin }}
+{% endif %}
+Pin-Priority: {{ entry.priority }}{{ "\n" if not loop.last else "" }}
+{% endfor %}

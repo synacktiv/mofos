@@ -1,0 +1,35 @@
+---
+- name: Upgrade packages (Archlinux)
+  when: packages.upgrade
+  pacman:
+    upgrade: true
+    update_cache: true
+  environment:
+    http_proxy: "{{ http_proxy }}"
+    https_proxy: "{{ http_proxy }}"
+  register: upgrade
+
+
+- name: Install packages (Archlinux)
+  when: packages.install | default(false)
+  pacman:
+    name: "{{ packages.install }}"
+    state: latest
+  environment:
+    http_proxy: "{{ http_proxy }}"
+    https_proxy: "{{ http_proxy }}"
+  register: install
+
+- name: Remove packages (Archlinux)
+  when: packages.remove | default(false)
+  pacman:
+    name: "{{ packages.remove }}"
+    state: latest
+  environment:
+    http_proxy: "{{ http_proxy }}"
+    https_proxy: "{{ http_proxy }}"
+  register: remove
+
+- name: Clean cache
+  when: (upgrade is changed or install is changed or remove is changed) and packages.clean
+  command: pacman -Scc --noconfirm

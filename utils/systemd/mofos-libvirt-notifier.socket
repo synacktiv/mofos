@@ -1,0 +1,12 @@
+[Unit]
+Description=My Notifier socket
+
+[Socket]
+ListenStream=%t/mofos-libvirt-notifier.socket
+Accept=True
+SocketMode=0600
+Priority=6
+Backlog=5
+
+[Install]
+WantedBy=sockets.target

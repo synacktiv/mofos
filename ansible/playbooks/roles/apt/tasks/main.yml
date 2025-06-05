@@ -1,0 +1,139 @@
+---
+- name: Create apt directories
+  when: apt.dirs | default(false)
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ apt_users }}"
+    group: root
+    mode: 0750
+  with_items: "{{ apt.dirs }}"
+    
+- name: Install CA certificates
+  when: apt.certificates | default(false)
+  template:
+    src: '{{ item.src }}'
+    dest: '{{ item.dest }}'
+    owner: "{{ apt_users }}"
+    group: root
+    mode: 0640
+  with_items: '{{ apt.certificates }}'
+
+- name: Configure apt confs
+  when: apt.confs | default(false)
+  block:
+    - name: Configure apt.conf
+      when: apt.confs.src | default(false)
+      template:
+        src: '{{ apt.confs.src }}'
+        dest: '{{ apt_dir }}/apt.conf'
+        owner: root
+        group: root
+        mode: 0640
+
+    - name: Purge apt.conf.d
+      when: apt.confs.purge | default(false)
+      file:
+        path: '{{ apt_conf_dir }}'
+        owner: root
+        group: root
+        mode: 0750
+        state: '{{ item }}'
+      with_items:
+        - absent
+        - directory
+
+    - name: Configure apt.conf.d includes
+      when: apt.confs.includes | default(false)
+      template:
+        src: '{{ conf.src }}'
+        dest: '{{ apt_conf_dir }}/{{ conf.priority }}{{ conf.name }}'
+        owner: root
+        group: root
+        mode: 0640
+      loop: '{{ apt.confs.includes }}'
+      loop_control:
+        loop_var: conf
+
+# Use custom task because apt_key uses the deprecated apt-key
+- name: Configure apt keys
+  when: apt.keys_ | default(false)
+  copy:
+    src: '{{ item.src }}'
+    dest: '{{ apt_trusted_gpg_dir }}/{{ item.name }}'
+    owner: root
+    group: root
+    mode: 0644
+  with_items: '{{ apt.keys_ }}'
+
+- name: Configure apt sources
+  when: apt.sources | default(false)
+  block:
+    - name: Configure sources.list
+      when: apt.sources.src | default(false)
+      template:
+        src: '{{ apt.sources.src }}'
+        dest: '{{ apt_dir }}/sources.list'
+        owner: root
+        group: root
+        mode: 0640
+
+    - name: Purge sources.list.d
+      when: apt.sources.purge | default(false)
+      file:
+        path: '{{ apt_sources_dir }}'
+        owner: root
+        group: root
+        mode: 0750
+        state: '{{ item }}'
+      with_items:
+        - absent
+        - directory
+
+    - name: Configure sources.list.d includes
+      when: apt.sources.includes | default(false)
+      template:
+        src: '{{ sources.src | default("sources.list.d/sources.list") }}'
+        dest: '{{ apt_sources_dir }}/{{ sources.name }}.list'
+        owner: root
+        group: root
+        mode: 0640
+      loop: '{{ apt.sources.includes }}'
+      loop_control:
+        loop_var: sources
+
+- name: Configure apt preferences
+  when: apt.preferences | default(false)
+  block:
+    - name: Configure preferences.list
+      when: apt.preferences.src | default(false)
+      template:
+        src: '{{ apt.preferences.src }}'
+        dest: '{{ apt_dir }}/preferences.list'
+        owner: root
+        group: root
+        mode: 0640
+
+    - name: Purge preferences.d
+      when: apt.preferences.purge | default(false)
+      file:
+        path: '{{ apt_preferences_dir }}'
+        owner: root
+        group: root
+        mode: 0750
+        state: '{{ item }}'
+      with_items:
+        - absent
+        - directory
+
+    - name: Configure preferences.d includes
+      when: apt.preferences.includes | default(false)
+      template:
+        src: '{{ prefs.src | default("preferences.d/pref") }}'
+        dest: '{{ apt_preferences_dir }}/{{ prefs.name }}'
+        owner: root
+        group: root
+        mode: 0640
+      loop: '{{ apt.preferences.includes }}'
+      loop_control:
+        loop_var: prefs

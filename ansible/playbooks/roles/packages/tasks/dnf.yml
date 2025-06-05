@@ -1,0 +1,30 @@
+---
+# TO UPDATE
+- name: Upgrade packages (RedHat)
+  dnf:
+    name: "*"
+    state: latest
+  register: dnf_upgrade
+
+- name: Install packages (RedHat)
+  when: packages.install | default(false)
+  dnf:
+    name: "{{ packages.install }}"
+    state: latest
+  register: dnf_install
+
+- name: Remove packages (RedHat)
+  when: packages.remove | default(false)
+  dnf:
+    name: "{{ packages.install }}"
+    state: absent
+  register: dnf_remove
+
+- name: Clean packages (RedHat)
+  dnf:
+    autoremove: yes
+
+- name: Clean packages files and caches (RedHat)
+  command:
+    cmd: "dnf clean all"
+  when: dnf_install.changed or dnf_upgrade.changed or dnf_remove.changed

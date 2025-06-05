@@ -1,0 +1,13 @@
+---
+- name: Install and configure xpra
+  hosts: debian
+  gather_facts: yes
+  remote_user: root
+  vars:
+    xpra:
+      displayfd: 10
+      src: xpra/custom.conf
+      service: xpra.service
+          
+  roles:
+    - { role: xpra, tags: xpra }

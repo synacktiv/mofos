@@ -1,0 +1,31 @@
+---
+- name: Install and enable the xpra global systemd service
+  include_role:
+    name: systemd/services
+  vars:
+    dirmode: 0755
+    mode: 0644
+    systemd:
+      user:
+        includes:
+          - "{{ xpra.service }}"
+      services:
+        enabled:
+          - unit: "{{ xpra.service }}"
+            scope: global
+
+- name: Create custom configuration file
+  template:
+    src: "{{ xpra.src }}"
+    dest: /etc/xpra/conf.d/99-custom.conf
+    mode: 0644
+    owner: root
+    group: root
+
+# from yaumn
+- name: Fix X11 bug
+  when: ansible_os_family == "Debian"
+  replace:
+    path: /etc/X11/Xsession.d/20x11-common_process-args
+    regexp: 'command -v'
+    replace: '/usr/bin/which'

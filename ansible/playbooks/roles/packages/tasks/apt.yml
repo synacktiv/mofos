@@ -1,0 +1,28 @@
+---
+- name: Upgrade packages (Debian)
+  when: packages.upgrade
+  apt:
+    name: "*"
+    state: latest
+    update_cache: yes
+
+- name: Install packages (Debian)
+  when: packages.install | default(false)
+  apt:
+    name: "{{ packages.install }}"
+    state: "{{ packages.state | default('latest') }}"
+    install_recommends: "{{ packages.install_recommends | default('no') }}"
+    update_cache: "{{ packages.update_cache | default('no') }}"
+
+- name: Remove packages (Debian)
+  when: packages.remove | default(false)
+  apt:
+    pkg: '{{ packages.remove }}'
+    state: absent
+    autoremove: yes
+
+
+- name: Clean packages (Debian)
+  when: packages.clean
+  apt:
+    autoclean: yes

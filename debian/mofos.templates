@@ -1,0 +1,26 @@
+Template: mofos/pool/default
+Type: string
+Default: mofos
+Description: Enter a pool name for mofos virtual machines
+ The pool will be created in /var/lib/libvirt/images
+
+Template: mofos/pool/install
+Type: string
+Default: mofos_install
+Description: Enter a pool name for templates installation
+ The pool will be created in /var/lib/libvirt/images
+
+Template: mofos/net/name
+Type: string
+Default: mofos
+Description: Enter a network name for mofos virtual machines.
+
+Template: mofos/net/iface
+Type: string
+Default: mof0
+Description: Enter the network interface name for mofos virtual machines.
+
+Template: mofos/net/address
+Type: string
+Default: 192.168.90.0/24
+Description: Enter the network based address for mofos virtual machines.

@@ -1,0 +1,301 @@
+#!/usr/bin/python3
+
+from sys import argv, stdin
+from socket import socket, AF_UNIX, SOCK_STREAM
+from fcntl import F_WRLCK, F_OFD_GETLK, F_UNLCK, fcntl
+from os import symlink, unlink, SEEK_SET
+from os.path import exists, islink, splitext, realpath
+from struct import pack, unpack
+from pwd import getpwnam
+from lxml import etree  # type: ignore
+from shutil import move
+from subprocess import run
+from shlex import split as shlex_split
+from typing import Optional
+
+USER = "user"
+PROJECT = "mofos"
+
+
+def is_managed(xml_root: etree.Element) -> bool:
+    namespaces = {
+        "libosinfo": "http://libosinfo.org/xmlns/libvirt/domain/1.0",
+        f"{PROJECT}": f"{PROJECT}://data",
+    }
+    managed = xml_root.xpath(
+        f"/domain/metadata/{PROJECT}:data/@managed", namespaces=namespaces
+    )
+    if len(managed) > 0 and managed[0] == "yes":
+        return True
+    return False
+
+
+def is_template(xml_root: etree.Element) -> bool:
+    namespaces = {
+        "libosinfo": "http://libosinfo.org/xmlns/libvirt/domain/1.0",
+        f"{PROJECT}": f"{PROJECT}://data",
+    }
+    kind = xml_root.xpath(
+        f"/domain/metadata/{PROJECT}:data/{PROJECT}:kind/text()", namespaces=namespaces
+    )
+    if len(kind) > 0 and kind[0] == "template":
+        return True
+    return False
+
+
+def notify(msg: str) -> None:
+    try:
+        user = getpwnam(USER)
+    except KeyError:
+        return None
+
+    destination = f"/run/{USER}/{user.pw_uid}/mofos-libvirt-notifier.socket"
+    if not exists(destination):
+        return None
+
+    sock = socket(AF_UNIX, SOCK_STREAM)
+    sock.connect(destination)
+    sock.send(f"{msg}\n".encode("utf8"))
+    sock.close()
+
+
+def get_template_disk(xml_root: etree.Element) -> Optional[str]:
+    """
+    Parse the XML sent in input and retrieve the template disk of the virtual
+    machine if managed.
+    """
+    template_path = ""
+    namespaces = {
+        "libosinfo": "http://libosinfo.org/xmlns/libvirt/domain/1.0",
+        f"{PROJECT}": f"{PROJECT}://data",
+    }
+    managed = xml_root.xpath(
+        f"/domain/metadata/{PROJECT}:data/@managed", namespaces=namespaces
+    )
+    if len(managed) <= 0 or managed[0] != "yes":
+        return None
+
+    # If Windows returns
+    os = xml_root.xpath(
+        "/domain/metadata/*[local-name()='libosinfo']/*[local-name()='os']/@id"
+    )
+    if "microsoft" in os:
+        return None
+
+    # Extract template disk from leave virtual machine
+    if not is_template(xml_root):
+        for disk in xml_root.xpath("/domain/devices/disk"):
+            # The template disk is identified because it is readonly and shareable
+            if (
+                disk.get("type") == "file"
+                and disk.xpath("readonly")
+                and disk.xpath("shareable")
+            ):
+                template_path = disk.xpath("source/@file")
+                if len(template_path) == 1:
+                    return template_path[0]
+    # Extract template disk from template virtual machine
+    else:
+        template_path = xml_root.xpath("/domain/devices/disk/source/@file")
+        if len(template_path) == 1:
+            return template_path[0]
+
+    return None
+
+
+def next_disk_in_chain(symlink_name: str, current: str) -> str:
+    filename, _ = splitext(current)
+    index = int(filename.split("-")[-1])
+    return f"{symlink_name}-{index + 1}.qcow2"
+
+
+def prev_disk_in_chain(symlink_name: str, current: str) -> str:
+    filename, _ = splitext(current)
+    index = int(filename.split("-")[-1])
+    return f"{symlink_name}-{index - 1}.qcow2"
+
+
+def _disk_lock_status(disk_path: str) -> list[bool]:
+    """
+    Permissions list:
+         - 100 (BLK_PERM_CONSISTENT_READ)
+         - 101 (BLK_PERM_WRITE)
+         - 103 (BLK_PERM_RESIZE)
+         - 201 (BLK_PERM_WRITE)
+         - 203 (BLK_PERM_RESIZE)
+    """
+    lock_list = []
+    with open(disk_path, "r") as fp:
+        for perm in [100, 101, 103, 201, 203]:
+            lock_struct = pack("hhlll", F_WRLCK, SEEK_SET, perm, 1, 0)
+            lock_result = fcntl(fp.fileno(), F_OFD_GETLK, lock_struct)
+            lock_status = unpack("hhlll", lock_result)
+            lock_list.append(lock_status[0] != F_UNLCK)
+
+    return lock_list
+
+
+def is_disk_locked_for_read(disk_path: str) -> bool:
+    """
+    101 bytes is for read
+    """
+    return _disk_lock_status(disk_path)[1]
+
+
+def is_disk_locked_for_write(disk_path: str) -> bool:
+    """
+    201 bytes is for write
+    """
+    return _disk_lock_status(disk_path)[3]
+
+
+def prepare_boot(domain: str) -> None:
+    xml_root = etree.fromstring(stdin.read())
+    template_path = get_template_disk(xml_root)
+
+    # Either an error occurred or the domain is not managed
+    if not template_path:
+        return None
+
+    if not exists(template_path):
+        return None
+
+    # If the disk template is not symlinked, symlink it
+    if not islink(template_path):
+        filename, _ = splitext(template_path)
+        real_disk = f"{filename}-0.qcow2"
+        move(template_path, real_disk)
+        symlink(real_disk, template_path)
+        notify(f"{domain}'s template disk symlinked")
+
+    # If the template is booting, always create a backing file
+    if is_template(xml_root):
+        current = realpath(template_path)
+        filename, _ = splitext(current)
+        symlink_name, _ = splitext(template_path)
+        new_index = int(filename.split("-")[-1]) + 1
+        new = f"{symlink_name}-{new_index}.qcow2"
+        cmd = f"/usr/bin/qemu-img create -f qcow2 -F qcow2 -b {current} {new}"
+        run(shlex_split(cmd))
+        notify(f"Creating a new backing file for {domain}")
+        unlink(template_path)
+        symlink(new, template_path)
+
+    # The template is locked, meaning that the template is booted
+    # In this case, it's not possible to create a new backing file
+    # on top of the disk file used by the template
+    # Therefore, we find a previous disk in the chain that is not locked
+    # normally, the immediate (n - 1) should be OK
+    else:
+        current = realpath(template_path)
+        while is_disk_locked_for_read(current):
+            filename, _ = splitext(current)
+            symlink_name, _ = splitext(template_path)
+            index = int(filename.split("-")[-1]) - 1
+            if index < 0:
+                return
+            current = f"{symlink_name}-{index}.qcow2"
+
+        unlink(template_path)
+        symlink(current, template_path)
+
+
+def commit_template(xml_root: etree.Element, domain: str) -> None:
+    template_path = get_template_disk(xml_root)
+
+    # Either an error occurred or the domain is not managed
+    if not template_path:
+        return None
+
+    if not exists(template_path):
+        return None
+
+    # We commit the chain as far as we can
+    # First, let's find the upper disk in the chain
+    symlink_name, _ = splitext(template_path)
+    current = realpath(template_path)
+    top = current
+    while exists(top):
+        previous = top
+        top = next_disk_in_chain(symlink_name, top)
+
+    # Already at the beginning of the chain, returns
+    while exists(previous):
+        current = previous
+        previous = prev_disk_in_chain(symlink_name, previous)
+        if not exists(previous):
+            break
+        # If the previous disk is locked then, we move the cursor to the
+        # current template and we don't remove it.
+        if is_disk_locked_for_write(previous):
+            if current != template_path:
+                unlink(template_path)
+                symlink(current, template_path)
+            break
+        # If the previous disk is not locked then we can commit
+        else:
+            # Committing
+            cmd = f"/usr/bin/qemu-img commit {current}"
+            notify("Committing the template disk")
+            run(shlex_split(cmd))
+
+            # Removing the template_disk
+            unlink(current)
+            unlink(template_path)
+            symlink(previous, template_path)
+
+
+def raise_firewall(domain: str) -> None:
+    xml_root = etree.fromstring(stdin.read())
+    if not is_managed(xml_root) or not exists("/usr/sbin/nft"):
+        return None
+
+    vnet = xml_root.xpath("/domain/devices/interface[alias/@name='net0']/target/@dev")
+    if len(vnet) == 0:
+        return None
+    with open("/tmp/qemu.log", "a") as fp:
+        fp.write("HERE")
+    nft_rule = (
+        f"table bridge filter-{domain} {{\n"
+        "\tchain forward {\n"
+        "\t\ttype filter hook forward priority 0; policy accept;\n"
+        f'\t\tiifname "{vnet[0]}" drop\n'
+        "\t}\n"
+        "}"
+    )
+    run(shlex_split("nft -f -"), input=nft_rule.encode("utf8"))
+
+
+def destroy_firewall(xml_root: etree.Element, domain: str) -> None:
+    if not is_managed(xml_root) or not exists("/usr/sbin/nft"):
+        return None
+
+    run(shlex_split(f"nft delete table bridge filter-{domain}"))
+
+
+if __name__ == "__main__":
+    domain = argv[1]
+    action = argv[2]
+
+    try:
+        if action == "stopped":
+            notify(f"{domain} stopped")
+        elif action == "start":
+            notify(f"{domain} is starting")
+        elif action == "started":
+            raise_firewall(domain)
+            notify(f"{domain} started")
+        elif action == "prepare":
+            prepare_boot(domain)
+        elif action == "release":
+            xml_root = etree.fromstring(stdin.read())
+            destroy_firewall(xml_root, domain)
+            commit_template(xml_root, domain)
+    except Exception as e:
+        from traceback import format_exc
+
+        with open("/tmp/qemu.log", "a") as fp:
+            fp.write(format_exc())
+            fp.write(e.__repr__())
+
+        exit(1)

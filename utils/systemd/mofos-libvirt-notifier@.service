@@ -1,0 +1,6 @@
+[Unit]
+Description=My Notifier
+
+[Service]
+ExecStart=/bin/bash -c 'read msg && notify-send "Libvirt" "$msg" -u low'
+StandardInput=socket

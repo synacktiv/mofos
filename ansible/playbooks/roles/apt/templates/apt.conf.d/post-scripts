@@ -1,0 +1,3 @@
+{% for script in conf.scripts %}
+Dpkg::Post-Invoke { "{{ script.path }} || {% if script.blocking | default(false) %}false{% else %}true{% endif %}"; };
+{% endfor %}

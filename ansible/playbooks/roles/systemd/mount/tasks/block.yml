@@ -1,0 +1,22 @@
+---
+- name: Create destination directories for each mount points
+  file:
+    state: directory
+    dest: "{{ mnt.where }}"
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Install and configure systemd mount points
+  template:
+    src: systemd.mount.j2
+    dest: "/usr/local/lib/systemd/system/{{ mnt.unit }}"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Enable mount points
+  systemd:
+    name: "{{ mnt.unit }}"
+    enabled: "{{ mnt.enabled }}"
+    state: "{{ mnt.state }}"

@@ -1,0 +1,55 @@
+#include <tunables/global>
+
+@{SHARE_DIRS}=/data/libvirt/shares/*/ /home/user/Public/**/
+
+# profile for virtiofsd helper process
+profile virtiofsd /usr/{lib,lib64,lib/qemu,libexec}/virtiofsd flags=(attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/libvirt-qemu>
+
+  capability sys_admin,
+  capability sys_resource,
+  capability setpcap,
+  capability fowner,
+  capability fsetid,
+
+  # init phase
+  / r,
+  mount options=(rw, rslave)  -> /,
+  umount /,
+  mount options=(rw, nosuid, nodev, noexec, relatime, bind, rbind) -> @{PROC},
+  owner /proc/sys/fs/file-max r,
+
+  # For communication/control from libvirtd
+  unix (send, receive) type=stream addr=none peer=(label=libvirtd),
+  signal (receive) set=("term") peer=/usr/sbin/libvirtd,
+  signal (receive) set=("term") peer=libvirtd,
+  owner /var/lib/libvirt/qemu/domain-*/fs[0-9]{[0-9],}-fs.pid w,
+  /var/lib/libvirt/qemu/domain-*/fs[0-9]{[0-9],}-fs.sock rw,
+  /var/lib/libvirt/qemu/ram/*/ram-node[0-9]{[0-9],} rw,
+
+  # For communication with confined and unconfined guests
+  unix (send, receive) type=stream addr=none peer=(label=libvirt-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*),
+  unix (send, receive) type=stream addr=none peer=(label=unconfined),
+  /usr/{lib,lib64,lib/qemu,libexec}/virtiofsd rmix,
+
+  # Common host paths to share from are allowed by default
+  # Further paths should be added as local override
+  # TODO - community to settle on a list of common paths to allow
+  owner @{SHARE_DIRS} r,
+  mount options=(rw, bind, rbind) -> @{SHARE_DIRS},
+  pivot_root /data/libvirt/shares/*/,
+  pivot_root /home/user/Public/**/,
+
+  # TODO - after pivot_root the rules for the actual file access by the guest
+  # through virtiofsd would need to start with / which is too open
+  capability sys_admin,
+  capability sys_resource,
+  mount options=(rw, nosuid, nodev, noexec, relatime, bind) -> @{PROC},
+  mount options=(rw, rslave) -> /,
+  /proc/1/task/1/attr/fscreate rw,
+  /** rw,
+
+  # Site-specific additions and overrides. See local/README for details.
+  # #include <local/usr.lib.qemu.virtiofsd>
+} 

@@ -1,0 +1,276 @@
+#include <tunables/global>
+@{LIBVIRT}="libvirt"
+
+profile libvirtd /usr/sbin/libvirtd flags=(attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/dbus>
+
+  capability kill,
+  capability net_admin,
+  capability net_raw,
+  capability setgid,
+  capability sys_admin,
+  capability sys_module,
+  capability sys_ptrace,
+  capability sys_pacct,
+  capability sys_nice,
+  capability sys_chroot,
+  capability setuid,
+  capability dac_override,
+  capability dac_read_search,
+  capability fowner,
+  capability chown,
+  capability setpcap,
+  capability mknod,
+  capability fsetid,
+  capability audit_write,
+  capability ipc_lock,
+  capability sys_rawio,
+  capability bpf,
+  capability perfmon,
+
+  # Needed for vfio
+  capability sys_resource,
+
+  mount options=(rw,rslave)  -> /,
+  mount options=(rw, nosuid) -> /{var/,}run/libvirt/qemu/*.dev/,
+  umount /{var/,}run/libvirt/qemu/*.dev/,
+  umount /dev/,
+
+  # libvirt provides any mounts under /dev to qemu namespaces
+  mount options=(rw, move) /dev/ -> /{,var/}run/libvirt/qemu/*.dev/,
+  mount options=(rw, move) /dev/** -> /{,var/}run/libvirt/qemu/*{,/},
+  mount options=(rw, move) /{,var/}run/libvirt/qemu/*.dev/ -> /dev/,
+  mount options=(rw, move) /{,var/}run/libvirt/qemu/*{,/} -> /dev/**,
+
+  network inet stream,
+  network inet dgram,
+  network inet6 stream,
+  network inet6 dgram,
+  network netlink raw,
+  network packet dgram,
+  network packet raw,
+
+  # for --p2p migrations
+  unix (send, receive) type=stream addr=none peer=(label=unconfined addr=none),
+
+  ptrace (read,trace) peer=unconfined,
+  ptrace (read,trace) peer=@{profile_name},
+  ptrace (read,trace) peer=dnsmasq,
+  ptrace (read,trace) peer=/usr/sbin/dnsmasq,
+  ptrace (read,trace) peer=libvirt-*,
+  ptrace (read,trace) peer=swtpm,
+
+  signal (send) peer=dnsmasq,
+  signal (send) peer=/usr/sbin/dnsmasq,
+  signal (read, send) peer=libvirt-*,
+  signal (send) set=("kill", "term") peer=unconfined,
+
+  # For communication/control to qemu-bridge-helper
+  unix (send, receive) type=stream addr=none peer=(label=libvirtd//qemu_bridge_helper),
+  signal (send) set=("term") peer=libvirtd//qemu_bridge_helper,
+
+  # allow connect with openGraphicsFD, direction reversed in newer versions
+  unix (send, receive) type=stream addr=none peer=(label=libvirt-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*),
+  # unconfined also required if guests run without security module
+  unix (send, receive) type=stream addr=none peer=(label=unconfined),
+
+  # required if guests run unconfined seclabel type='none' but libvirtd is confined
+  signal (read, send) peer=unconfined,
+
+  # Very lenient profile for libvirtd since we want to first focus on confining
+  # the guests. Guests will have a very restricted profile.
+  / r,
+  # BEGIN CUSTOM
+  /var/cache/libvirt/** rwmkl,
+  /var/lib/libvirt/** rwmkl,
+
+  /usr/share/libvirt/** r,
+  /usr/share/misc/pci.ids r,
+  /usr/share/qemu/firmware{,/**} r,
+  /usr/share/OVMF{,/**} r,
+
+  /run/libvirtd.pid rwk,
+  /run/libvirt/** rwmkl,
+  /run/systemd/userdb/ r,
+  /run/udev/data/* r,
+  /run/utmp rk,
+  umount /run/libvirt/qemu/**,
+
+  /etc/apparmor.d/libvirt/ r,
+  /etc/apparmor.d/libvirt/* rw,
+  /etc/group r,
+  /etc/hosts r,
+  /etc/libvirt/{newfilter,qemu,secrets,storage}/ rw,
+  /etc/libvirt/{newfilter,qemu,secrets,storage}/** rw,
+  /etc/libvirt/** r,
+  /etc/machine-id r,
+  /etc/resolv.conf r,
+  /etc/nsswitch.conf r,
+  /etc/passwd r,
+  /etc/mdevctl.d{,/**} r,
+
+  /proc/*/cgroup r,
+  /proc/cgroups r,
+  /proc/devices r,
+  /proc/*/fd/ r,
+  /proc/*/fd/** r,
+  /proc/*/mounts r,
+  /proc/mtrr w,
+  /proc/*/net/dev r,
+  /proc/*/stat r,
+  /proc/*/status r,
+  /proc/sys/kernel/random/boot_id r,
+  /proc/*/task/** r,
+  /proc/uptime r,
+  /proc/sys/net/** rw,
+
+  /dev/bus/ rw,
+  /dev/bus/usb{,/**} rwk,
+  /dev/hugepages/libvirt/qemu/ rw,
+  /dev/hugepages/libvirt/ rw,
+  /dev/hugepages/ rw,
+  /dev/kvm rw,
+  /dev/mapper/control rw,
+  /dev/mqueue/ rw,
+  /dev/net/tun rw,
+  /dev/ptmx rw,
+  /dev/pts/ rw,
+  /dev/random rw,
+  /dev/shm/ rw,
+  /dev/tty rw,
+  /dev/urandom rw,
+  /dev/vhost-net rw,
+  /dev/vhost-vsock rw,
+  /dev/vfio{,/**} rw,
+
+  /sys/bus/pci/devices/ r,
+  /sys/bus{,/**} r,
+  /sys/bus/pci/drivers/iwlwifi/unbind rw,
+  /sys/bus/pci/drivers/vfio-pci/unbind rw,
+  /sys/bus/pci/drivers_probe rw,
+  /sys/class{,/**} r,
+  /sys/devices/pci0000:00/** rw,
+  /sys/devices/** r,
+  /sys/fs/cgroup/cgroup.controllers r,
+  /sys/fs/cgroup/machine.slice/cgroup.controllers r,
+  /sys/fs/cgroup/machine.slice/machine-qemu*/libvirt/ rw,
+  /sys/fs/cgroup/machine.slice/machine-qemu*/libvirt/** rw,
+  /sys/fs/cgroup/machine.slice/machine-qemu*/** rw,
+  /sys/fs/cgroup/ r,
+  /sys/kernel/iommu_groups/*/devices/ r,
+  /sys/kernel/iommu_groups/ r,
+  /sys/kernel/mm/hugepages/ r,
+  /sys/kernel/mm/hugepages/** r,
+  /sys/module/kvm_intel/parameters/nested r,
+
+  #audit /** rwmkl,
+
+  #/bin/* PUx,
+  #/sbin/* PUx,
+  #/usr/bin/* PUx,
+
+  # whitelisting needed programs
+  /usr/bin/grep PUx,
+  /usr/bin/id PUx,
+  /usr/bin/loginctl PUx,
+  /usr/bin/nc.openbsd PUx,
+  /usr/bin/mdevctl PUx,
+  /usr/bin/qemu-img PUx,
+  /usr/bin/qemu-system-aarch64 PUx,
+  /usr/bin/qemu-system-alpha PUx,
+  /usr/bin/qemu-system-arm PUx,
+  /usr/bin/qemu-system-cris PUx,
+  /usr/bin/qemu-system-i386 PUx,
+  /usr/bin/qemu-system-m68k PUx,
+  /usr/bin/qemu-system-microblaze PUx,
+  /usr/bin/qemu-system-microblazeel PUx,
+  /usr/bin/qemu-system-mips PUx,
+  /usr/bin/qemu-system-mips64 PUx,
+  /usr/bin/qemu-system-mips64el PUx,
+  /usr/bin/qemu-system-mipsel PUx,
+  /usr/bin/qemu-system-ppc PUx,
+  /usr/bin/qemu-system-ppc64 PUx,
+  /usr/bin/qemu-system-riscv32 PUx,
+  /usr/bin/qemu-system-riscv64 PUx,
+  /usr/bin/qemu-system-s390x PUx,
+  /usr/bin/qemu-system-sh4 PUx,
+  /usr/bin/qemu-system-sh4eb PUx,
+  /usr/bin/qemu-system-sparc PUx,
+  /usr/bin/qemu-system-sparc64 PUx,
+  /usr/bin/qemu-system-x86_64 PUx,
+  /usr/bin/qemu-system-xtensa PUx,
+  /usr/bin/qemu-system-xtensaeb PUx,
+  /usr/sbin/dmidecode PUx,
+  /usr/sbin/dnsmasq PUx,
+  /usr/sbin/tc PUx,
+  /usr/sbin/xtables-nft-multi PUx,
+  /usr/sbin/nft PUx,
+  /usr/share/qemu/vhost-user{,/**} r,
+
+  # END CUSTOM
+  /usr/sbin/virtlogd pix,
+  # BEGIN CUSTOM
+  #/usr/sbin/* PUx,
+  #/{usr/,}lib/udev/scsi_id PUx,
+  #/usr/{lib,lib64}/xen-common/bin/xen-toolstack PUx,
+  #/usr/{lib,lib64,libexec}/xen/bin/* Ux,
+  #/usr/{lib,libexec}/xen-*/bin/libxl-save-helper PUx,
+  #/usr/{lib,libexec}/xen-*/bin/pygrub PUx,
+  #/usr/{lib,lib64,lib/qemu,libexec}/vhost-user-gpu PUx,
+  # END CUSTOM
+  /usr/{lib,lib64,lib/qemu,libexec}/virtiofsd PUx,
+
+  # Required by nwfilter_ebiptables_driver.c:ebiptablesWriteToTempFile() to
+  # read and run an ebtables script.
+  /var/lib/libvirt/virtd* ixr,
+
+  # force the use of virt-aa-helper
+  audit deny /{usr/,}sbin/apparmor_parser rwxl,
+  audit deny /etc/apparmor.d/libvirt/** wxl,
+  audit deny /sys/kernel/security/apparmor/features rwxl,
+  audit deny /sys/kernel/security/apparmor/matching rwxl,
+  audit deny /sys/kernel/security/apparmor/.* rwxl,
+  /sys/kernel/security/apparmor/profiles r,
+  # BEGIN CUSTOM
+  #/usr/lib/libvirt/* PUxr,
+  /usr/lib/libvirt/virt-aa-helper PUx,
+  # END CUSTOM
+  /usr/lib/libvirt/libvirt_parthelper ix,
+  /usr/lib/libvirt/libvirt_iohelper ix,
+  /etc/libvirt/hooks/** rmix,
+  /etc/xen/scripts/** rmix,
+
+  # allow changing to our UUID-based named profiles
+  change_profile -> @{LIBVIRT}-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*,
+
+  /usr/{lib,lib64,lib/qemu,libexec}/qemu-bridge-helper Cx -> qemu_bridge_helper,
+  # child profile for bridge helper process
+  profile qemu_bridge_helper {
+   #include <abstractions/base>
+
+   capability setuid,
+   capability setgid,
+   capability setpcap,
+   capability net_admin,
+
+   network inet stream,
+
+   # For communication/control from libvirtd
+   unix (send, receive) type=stream addr=none peer=(label=libvirtd),
+   unix (send, receive) type=stream addr=none peer=(label=libvirtd//virtiofsd),
+   signal (receive) set=("term") peer=/usr/sbin/libvirtd,
+   signal (receive) set=("term") peer=libvirtd,
+
+
+   /dev/net/tun rw,
+   /etc/qemu/** r,
+   owner @{PROC}/*/status r,
+   owner @{PROC}/*/stat r,
+
+   /usr/{lib,lib64,lib/qemu,libexec}/qemu-bridge-helper rmix,
+  }
+
+  # Site-specific additions and overrides. See local/README for details.
+  #include <local/usr.sbin.libvirtd>
+}

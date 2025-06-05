@@ -1,0 +1,82 @@
+---
+- name: Install local systemd unit
+  when: systemd.local.includes | default(false)
+  block:
+    - name: "Ensure {{ local_systemd_dir }} exists"
+      file:
+        path: "{{ local_systemd_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ dirmode }}"
+
+    - name: Purge {{ local_systemd_dir }}
+      when: systemd.local.purge | default(false)
+      file:
+        path: "{{ local_systemd_dir }}"
+        owner: root
+        group: root
+        mode: 0750
+        state: "{{ item }}"
+      with_items:
+        - absent
+        - directory
+
+    - name: Install local systemd unit files
+      template:
+        src: "{{ service }}"
+        dest: "{{ local_systemd_dir }}"
+        owner: root
+        group: root
+        mode: "{{ mode }}"
+      loop: "{{ systemd.local.includes }}"
+      loop_control:
+        loop_var: service
+
+- name: Install user systemd unit
+  when: systemd.user.includes | default(false)
+  block:
+    - name: "Ensure {{ user_systemd_dir }} exists"
+      file:
+        path: "{{ user_systemd_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ dirmode }}"
+
+    - name: Purge {{ user_systemd_dir }}
+      when: systemd.user.purge | default(false)
+      file:
+        path: "{{ user_systemd_dir }}"
+        owner: root
+        group: root
+        mode: 0750
+        state: "{{ item }}"
+      with_items:
+        - absent
+        - directory
+
+    - name: Install unit systemd unit files
+      template:
+        src: "{{ service }}"
+        dest: "{{ user_systemd_dir }}"
+        owner: root
+        group: root
+        mode: "{{ mode }}"
+      loop: "{{ systemd.user.includes }}"
+      loop_control:
+        loop_var: service
+
+- name: Enabling systemd service
+  systemd_service: "{{ svc }}"
+  loop: "{{ systemd.services.enabled | default([]) | map('combine', {'enabled': 'yes'}) }}"
+  loop_control:
+    loop_var: svc
+  ignore_errors: true
+
+- name: Disabling systemd service
+  systemd_service: "{{ svc }}"
+  loop: "{{ systemd.services.disabled | default([]) | map('combine', {'enabled': 'no'}) }}"
+  loop_control:
+    loop_var: svc
+  ignore_errors: true
