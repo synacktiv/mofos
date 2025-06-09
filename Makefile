@@ -61,74 +61,38 @@ endif
 # install
 # ============================================================================ #
 local_install: check_root
-	mkdir -p $(PYTHON_SITE_PACKAGES)
-	mkdir -p $(PREFIX)/share/mofos
-	mkdir -p $(PREFIX)/share/mofos/templates
-	mkdir -p $(PREFIX)/share/mofos/hooks
-	mkdir -p $(PREFIX)/share/mofos/utils
-	mkdir -p $(PREFIX)/share/mofos/apparmor
-	mkdir -p $(PREFIX)/share/mofos/pool
-	mkdir -p $(PREFIX)/share/mofos/bridge
-	mkdir -p /etc/mofos
-	mkdir -p /etc/libvirt/hooks/qemu.d
-	mkdir -p /etc/bash_completion.d/ 
-	mkdir -p $(PREFIX)/share/fish/vendor_completions.d/ 
-	mkdir -p $(PREFIX)/share/zsh/vendor-completions/
-	mkdir -p $(PREFIX)/libexec/mofos
-	mkdir -p $(PREFIX)/lib/systemd/user
-	install -o root -g root -m0755 bin/mofos /usr/bin/
+	install -o root -g root -d -m 0755 $(PYTHON_SITE_PACKAGES)
 	cp -r mofos $(PYTHON_SITE_PACKAGES)/
-	cp utils/mofosnet/mofosnet.toml /etc/mofos/
-	cp config.sample.toml $(PREFIX)/share/mofos/
-	cp config.minimal.toml $(PREFIX)/share/mofos/
-	install -o root -g root -m0755 utils/mofosnet/mofosnet.py $(PREFIX)/libexec/mofos/
-	cp utils/mofosnet/mofosnet.toml /etc/mofos/
-	install -o root -g root -m0755 utils/qemu.d/90-mofos /etc/libvirt/hooks/qemu.d/
-	cp utils/sudoers.d/mofos /etc/sudoers.d/
-	cp utils/pool/install.xml $(PREFIX)/share/mofos/pool/
-	cp utils/pool/mofos.xml $(PREFIX)/share/mofos/pool/
-	cp utils/bridge/mof0.xml $(PREFIX)/share/mofos/bridge/
-	cp utils/systemd/mofos-libvirt-notifier.socket $(PREFIX)/lib/systemd/user/
-	cp utils/systemd/mofos-libvirt-notifier@.service $(PREFIX)/lib/systemd/user/
-	cp utils/systemd/ssh-agent-proxy.service $(PREFIX)/lib/systemd/user/
-	cp utils/systemd/sudo-auth-proxy.service $(PREFIX)/lib/systemd/user/
-	cp utils/polkit/mofos.rules /etc/polkit-1/rules.d/
-	cp templates/postinstall.sh.j2 $(PREFIX)/share/mofos/templates/
-	cp templates/preseed.cfg.j2 $(PREFIX)/share/mofos/templates/debian
-	cp hooks/install.sh $(PREFIX)/share/mofos/hooks/
-	cp hooks/new.sh $(PREFIX)/share/mofos/hooks/
-	cp hooks/poststart.sh $(PREFIX)/share/mofos/hooks/
-	cp utils/shell/autocompletions/bash/mofos /etc/bash_completion.d/
-	cp utils/shell/autocompletions/fish/mofos.fish $(PREFIX)/share/fish/vendor_completions.d/
-	cp utils/shell/autocompletions/zsh/_mofos $(PREFIX)/share/zsh/vendor-completions/
-	cp utils/sudo-auth-proxy.py $(PREFIX)/share/mofos/utils/
-	cp utils/ssh-agent-proxy.py $(PREFIX)/share/mofos/utils/
+	install -o root -g root -m0755 bin/mofos /usr/bin/
+	install -o root -g root -m 0644 -D utils/mofosnet/mofosnet.toml /etc/mofos/
+	install -o root -g root -m 0644 -D config.sample.toml config.minimal.toml $(PREFIX)/share/mofos/
+	install -o root -g root -m 0755 -D utils/mofosnet/mofosnet.py $(PREFIX)/libexec/mofos/
+	install -o root -g root -m 0644 -D utils/mofosnet/mofosnet.toml /etc/mofos/
+	install -o root -g root -m 0755 -D utils/qemu.d/90-mofos /etc/libvirt/hooks/qemu.d/
+	install -o root -g root -m 0644 -D utils/sudoers.d/mofos /etc/sudoers.d/
+	install -o root -g root -m 0644 -D utils/pool/install.xml $(PREFIX)/share/mofos/pool/
+	install -o root -g root -m 0644 -D utils/pool/mofos.xml $(PREFIX)/share/mofos/pool/
+	install -o root -g root -m 0644 -D utils/bridge/mof0.xml $(PREFIX)/share/mofos/bridge/
+	install -o root -g root -m 0644 -D utils/systemd/mofos-libvirt-notifier.socket $(PREFIX)/lib/systemd/user/
+	install -o root -g root -m 0644 -D utils/systemd/mofos-libvirt-notifier@.service $(PREFIX)/lib/systemd/user/
+	install -o root -g root -m 0644 -D utils/systemd/ssh-agent-proxy.service $(PREFIX)/lib/systemd/user/
+	install -o root -g root -m 0644 -D utils/systemd/sudo-auth-proxy.service $(PREFIX)/lib/systemd/user/
+	install -o root -g root -m 0644 -D utils/polkit/mofos.rules /etc/polkit-1/rules.d/
+	install -o root -g root -m 0644 -D templates/postinstall.sh.j2 $(PREFIX)/share/mofos/templates/
+	install -o root -g root -m 0644 -D templates/preseed.cfg.j2 $(PREFIX)/share/mofos/templates/debian
+	install -o root -g root -m 0755 -D hooks/install.sh hooks/new.sh hooks/poststart.sh $(PREFIX)/share/mofos/hooks/
+	install -o root -g root -m 0644 -D utils/shell/autocompletions/bash/mofos /etc/bash_completion.d/
+	install -o root -g root -m 0644 -D utils/shell/autocompletions/fish/mofos.fish $(PREFIX)/share/fish/vendor_completions.d/
+	install -o root -g root -m 0644 -D utils/shell/autocompletions/zsh/_mofos $(PREFIX)/share/zsh/vendor-completions/
+	install -o root -g root -m 0644 -D utils/sudo-auth-proxy.py utils/ssh-agent-proxy.py $(PREFIX)/share/mofos/utils/
 
 	sed -i "s|/usr/libexec/mofos/mofosnet.py|$(PREFIX)/libexec/mofos/mofosnet.py|" /etc/sudoers.d/mofos
 	sed -i "s|/usr/libexec/mofos/mofosnet.py|$(PREFIX)/libexec/mofos/mofosnet.py|" $(PYTHON_SITE_PACKAGES)/mofos/settings.py
 	sed -i "s|/usr/share/mofos/config.minimal.toml|$(PREFIX)/share/mofos/config.minimal.toml|" $(PYTHON_SITE_PACKAGES)/mofos/settings.py
 
-	chmod -R u=rwX,g=rX,o=rX $(PYTHON_SITE_PACKAGES)
-	chmod -R u=rwX,g=rX,o=rX /usr/local/share/mofos
-	chmod -R u=rwX,g=rX,o=rX /usr/local/share/mofos/templates
-	chmod -R u=rwX,g=rX,o=rX /usr/local/share/mofos/hooks
-	chmod -R u=rwX,g=rX,o=rX /usr/local/share/mofos/utils
-	chmod -R u=rwX,g=rX,o=rX /usr/local/share/mofos/apparmor
-	chmod -R u=rwX,g=rX,o=rX /usr/local/share/mofos/pool
-	chmod -R u=rwX,g=rX,o=rX /usr/local/share/mofos/bridge
-	chmod -R u=rwX,g=rX,o=rX /etc/mofos
-	chmod -R u=rwX,g=rX,o=rX /etc/libvirt/hooks/qemu.d
-	chmod -R u=rwX,g=rX,o=rX /etc/bash_completion.d/ 
-	chmod -R u=rwX,g=rX,o=rX /usr/local/share/fish/vendor_completions.d/ 
-	chmod -R u=rwX,g=rX,o=rX /usr/local/share/zsh/vendor-completions/
-	chmod -R u=rwX,g=rX,o=rX /usr/local/libexec/mofos
-	chmod -R u=rwX,g=rX,o=rX /usr/local/lib/systemd/user
-
 install_apparmor: check_root
-	cp utils/apparmor.d/usr.sbin.libvirtd $(PREFIX)/share/mofos/apparmor/
-	cp utils/apparmor.d/usr.lib.qemu.virtiofsd $(PREFIX)/share/mofos/apparmor/
-	cp utils/apparmor.d/usr.lib.qemu.virtiofsd /etc/apparmor.d/
-	cp utils/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/
+	install -o root -g root -D utils/apparmor.d/usr.sbin.libvirtd utils/apparmor.d/usr.lib.qemu.virtiofsd $(PREFIX)/share/mofos/apparmor/
+	install -o root -g root -D utils/apparmor.d/usr.lib.qemu.virtiofsd utils/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/
 	systemctl reload apparmor
 
 configure: check_root
