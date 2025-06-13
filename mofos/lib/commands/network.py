@@ -28,10 +28,7 @@ def _create_tunnel(domain: Domain, dest: str):
     err, _, _ = local_run(f"/usr/bin/sudo {NET_HELPER} route {domain.ip} {gw}")
     if err:
         error(f"Could not configure the route between {domain.ip} and {gw}")
-    log.debug(
-        f"Running /bin/systemctl --user start sshvpn@{dest}, it requires the ssh-agent to be unlocked"
-    )
-    # err, _, _ = local_run(f"/bin/systemctl --user start sshvpn@{dest}")
+    log.debug("The tunnel establishment requires the ssh-agent to be unlocked")
     prop: str = ""
     if "SSH_AUTH_SOCK" in environ:
         prop = f"--property=Environment=SSH_AUTH_SOCK={environ['SSH_AUTH_SOCK']}"

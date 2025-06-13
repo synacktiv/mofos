@@ -15,8 +15,9 @@ NET_ADDRESS := "192.168.90.0/24"
 # ============================================================================ #
 # versioning
 # ============================================================================ #
-VERSION_BASE      = 1.0.0
-PROJECT_REVISION ?= $(shell git rev-parse --short HEAD || echo @@revision@@)
+VERSION_BASE      = $(shell cat VERSION)
+DEFAULT_REVISION ?= "head"
+PROJECT_REVISION ?= $(shell git rev-parse --short HEAD || echo $(DEFAULT_REVISION))
 PROJECT_VERSION  ?= $(VERSION_BASE).$(PROJECT_REVISION)
 version:
 	@echo $(PROJECT_VERSION)
